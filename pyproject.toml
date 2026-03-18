@@ -21,9 +21,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/qiugq/playwright-mcp"
-Repository = "https://github.com/qiugq/playwright-mcp"
-Issues = "https://github.com/qiugq/playwright-mcp/issues"
+Homepage = "https://github.com/qiufengxiaozhu/playwright-mcp"
+Repository = "https://github.com/qiufengxiaozhu/playwright-mcp"
+Issues = "https://github.com/qiufengxiaozhu/playwright-mcp/issues"
 
 [build-system]
 requires = ["hatchling"]

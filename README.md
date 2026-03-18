@@ -33,7 +33,7 @@ Most browser-automation MCP servers either bundle an LLM (requiring an API key a
 
 ```bash
 # Clone
-git clone https://github.com/qiugq/playwright-mcp.git
+git clone https://github.com/qiufengxiaozhu/playwright-mcp.git
 cd playwright-mcp
 
 # Create virtual environment and install dependencies
