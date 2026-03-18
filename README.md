@@ -1,5 +1,7 @@
 # Playwright MCP Server
 
+**English** | [中文](README_CN.md)
+
 A lightweight [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that gives AI agents — such as **Cursor**, **Claude Desktop**, **Windsurf**, or any MCP-compatible client — full control over a real Chromium browser through **27 atomic tools**.
 
 > **No LLM API key needed.** Your AI agent *is* the brain; this server is the hands.
