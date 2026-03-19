@@ -1,0 +1,116 @@
+---
+description: 浏览器自动化操作的前置知识和最佳实践，当用户要求使用浏览器操作MCP进行网页交互时自动应用
+globs:
+alwaysApply: false
+---
+
+# 浏览器自动化操作前置知识
+
+## 核心原则：MCP 服务器选择
+
+本项目有三个浏览器相关的 MCP 服务器，**必须根据场景正确选择**：
+
+### 1. `user-browser-use` / `project-0-luoshu-server-browser-use`（外部浏览器 - 首选）
+
+- **用途**: 打开系统外部浏览器（如 Chromium），访问任意 URL 进行自动化操作
+- **适用场景**: 访问内网地址、测试部署的 Web 应用、执行端到端操作流程
+- **关键特点**:
+  - 会启动一个独立的外部浏览器窗口（不在 Cursor IDE 内部）
+  - 支持访问内网 IP 地址（如 `172.16.x.x`）
+  - 提供文件上传能力（`browser_upload_file` 和 `browser_upload_via_dialog`）
+  - 元素定位使用 **CSS 选择器** 或 **文本内容**
+
+### 2. `cursor-ide-browser`（IDE 内置浏览器 - 勿用于外部网站）
+
+- **用途**: Cursor IDE 内置的 Simple Browser，主要用于前端开发预览和调试
+- **适用场景**: 预览本地开发的前端页面、Canvas 可视化
+- **关键限制**:
+  - ❌ **不能访问内网 IP 地址**（会出现 `chrome-error://chromewebdata/` 错误）
+  - ❌ 不适合访问需要登录的外部 Web 应用
+  - ❌ Iframe 内容不可访问
+  - 元素定位使用 **ref 引用**（与 user-browser-use 的 CSS 选择器不同）
+
+### 选择决策树
+
+```
+用户要求浏览器操作？
+├── 访问外部/内网 URL → 使用 `user-browser-use`
+├── 测试已部署的 Web 应用 → 使用 `user-browser-use`
+├── 预览本地开发页面 (localhost) → 可以用 `cursor-ide-browser`
+└── 创建 Canvas 可视化 → 使用 `cursor-ide-browser`
+```
+
+## `user-browser-use` 工具使用指南
+
+### 工具清单与用法
+
+| 工具 | 用途 | 关键参数 |
+|------|------|----------|
+| `browser_open` | 打开浏览器并导航到 URL | `url`(必填), `wait_until` |
+| `browser_screenshot` | 截图查看当前页面状态 | `wait_for_idle`, `wait_ms`, `full_page` |
+| `browser_snapshot` | 获取页面 DOM 结构化快照 | `selector`(限定范围), `include_text_nodes` |
+| `browser_click` | 点击元素 | `selector` 或 `text`, `force`, `timeout` |
+| `browser_type` | 在输入框中输入文字 | `selector`(必填), `text`(必填), `clear` |
+| `browser_select` | 下拉框选择 | `selector`(必填), `value` 或 `label` |
+| `browser_upload_file` | 上传文件到 file input | `selector`(必填), `file_path`(必填) |
+| `browser_upload_via_dialog` | 通过拦截文件对话框上传 | `file_path`(必填), `trigger_selector` 或 `trigger_text` |
+| `browser_scroll` | 滚动页面 | `direction`, `amount`, `selector` |
+| `browser_wait_for` | 等待条件满足 | `selector`, `text`, `idle`, `timeout` |
+| `browser_execute_js` | 执行 JavaScript | `script`(必填) |
+| `browser_get_text` | 获取文本内容 | `selector`(可选) |
+| `browser_close` | 关闭浏览器 | 无参数 |
+
+### 标准操作流程
+
+```
+1. browser_open → 打开目标 URL
+2. browser_screenshot → 确认页面加载状态
+3. browser_snapshot → 获取可交互元素列表，找到目标元素的 CSS 选择器
+4. browser_click / browser_type / ... → 执行交互操作
+5. browser_screenshot → 确认操作结果
+6. 重复 3-5 直到完成
+7. browser_close → 关闭浏览器（可选）
+```
+
+### 关键注意事项
+
+1. **先截图/快照再操作**: 每次交互前，先用 `browser_screenshot` 或 `browser_snapshot` 确认页面状态
+2. **CSS 选择器优先**: 用 `browser_snapshot` 获取元素的 CSS 选择器，比文本匹配更可靠
+3. **文件上传两种方式**:
+   - `browser_upload_file`: 页面上已有可见的 `<input type="file">` 时使用
+   - `browser_upload_via_dialog`: 上传按钮通过 JS 动态创建 file input 时使用（更通用）
+4. **文件路径**: 使用 WSL 路径格式（如 `/tmp/test.docx`），不要用 Windows 路径
+5. **等待策略**: 页面加载或操作后，使用 `browser_wait_for` 或 `browser_screenshot` + `wait_ms` 确认完成
+6. **下拉框**: 如果是原生 `<select>` 用 `browser_select`；如果是自定义下拉组件，需要先 `browser_click` 打开再 `browser_click` 选项
+
+## 常见失败场景与解决方案
+
+### 场景 1: 访问内网地址失败
+- **错误**: `chrome-error://chromewebdata/`
+- **原因**: 使用了 `cursor-ide-browser`（IDE 内置浏览器无法访问内网）
+- **解决**: 改用 `user-browser-use`
+
+### 场景 2: 元素找不到
+- **原因**: 页面未完全加载，或选择器不正确
+- **解决**: 先 `browser_screenshot` 确认页面状态，再 `browser_snapshot` 获取正确的选择器
+
+### 场景 3: 文件上传无反应
+- **原因**: 使用了 `browser_upload_file` 但页面上没有可见的 file input
+- **解决**: 改用 `browser_upload_via_dialog`，指定触发上传的按钮选择器
+
+### 场景 4: 自定义下拉框选择失败
+- **原因**: 使用了 `browser_select`，但组件不是原生 `<select>`
+- **解决**: 先 `browser_click` 打开下拉，再 `browser_click` 选择目标选项
+
+## 测试文件准备
+
+项目中有可用的测试文档：
+- **docx 文件**: `/opt/luoshu-server/src/docscommon/templates/demosite/en/` 目录下有多个 .docx 文件
+- **pdf 文件**: 同目录下有 .pdf 文件
+- **建议**: 操作前先复制到 `/tmp/` 下并重命名为简单文件名，避免路径中的中文和特殊字符
+
+```bash
+# 示例：准备测试文件
+cp "源文件路径" /tmp/test.docx
+cp "源文件路径" /tmp/test.pdf
+```

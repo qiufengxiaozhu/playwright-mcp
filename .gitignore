@@ -29,5 +29,6 @@ uv.lock
 # Docs (local dev notes, not part of the project)
 docs/
 
-# Cursor
-.cursor/
+# Cursor (exclude all except rules)
+.cursor/*
+!.cursor/rules/
