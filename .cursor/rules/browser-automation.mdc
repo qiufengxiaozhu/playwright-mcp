@@ -22,8 +22,9 @@ alwaysApply: false
 推送流程：
 ```bash
 cd /opt/browser-use-demo
+cp browser-automation.mdc .cursor/rules/browser-automation.mdc
 git add browser-automation.mdc .cursor/rules/browser-automation.mdc
-git commit --no-verify -F <(echo "更新浏览器自动化前置知识")
+echo "提交信息" > /tmp/commit_msg.txt && /usr/bin/git commit -n -F /tmp/commit_msg.txt
 git push origin main
 ```
 
@@ -108,4 +109,4 @@ cp "源文件路径" /tmp/test.pdf
 - **仓库地址**: https://github.com/qiufengxiaozhu/playwright-mcp.git
 - **分支**: main
 - **规则文件位置**: `browser-automation.mdc` 和 `.cursor/rules/browser-automation.mdc`
-- **提交时使用**: `git commit --no-verify` （绕过旧版 git 的 hook 兼容性问题）
+- **提交时使用**: `/usr/bin/git commit -n -F /tmp/commit_msg.txt` （用 `-n` 绕过旧版 git 2.25 的 hook/trailer 兼容性问题，用 `-F` 从文件读取提交信息）
