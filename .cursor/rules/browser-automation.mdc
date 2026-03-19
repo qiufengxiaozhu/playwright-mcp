@@ -6,39 +6,28 @@ alwaysApply: false
 
 # 浏览器自动化操作前置知识
 
-## 核心原则：MCP 服务器选择
+## 核心原则
 
-本项目有三个浏览器相关的 MCP 服务器，**必须根据场景正确选择**：
+### 1. 默认使用外部浏览器 `user-browser-use`
 
-### 1. `user-browser-use` / `project-0-luoshu-server-browser-use`（外部浏览器 - 首选）
+**所有浏览器自动化操作默认使用 `user-browser-use` MCP 服务器**（外部 Chromium 浏览器），除非有明确理由才使用 `cursor-ide-browser`（IDE 内置浏览器）。
 
-- **用途**: 打开系统外部浏览器（如 Chromium），访问任意 URL 进行自动化操作
-- **适用场景**: 访问内网地址、测试部署的 Web 应用、执行端到端操作流程
-- **关键特点**:
-  - 会启动一个独立的外部浏览器窗口（不在 Cursor IDE 内部）
-  - 支持访问内网 IP 地址（如 `172.16.x.x`）
-  - 提供文件上传能力（`browser_upload_file` 和 `browser_upload_via_dialog`）
-  - 元素定位使用 **CSS 选择器** 或 **文本内容**
+- `cursor-ide-browser` 仅在以下场景使用：创建 Canvas 可视化、预览本地前端页面
+- 其他所有场景（访问 URL、测试 Web 应用、端到端操作）一律使用 `user-browser-use`
 
-### 2. `cursor-ide-browser`（IDE 内置浏览器 - 勿用于外部网站）
+### 2. 前置知识实时同步 GitHub
 
-- **用途**: Cursor IDE 内置的 Simple Browser，主要用于前端开发预览和调试
-- **适用场景**: 预览本地开发的前端页面、Canvas 可视化
-- **关键限制**:
-  - ❌ **不能访问内网 IP 地址**（会出现 `chrome-error://chromewebdata/` 错误）
-  - ❌ 不适合访问需要登录的外部 Web 应用
-  - ❌ Iframe 内容不可访问
-  - 元素定位使用 **ref 引用**（与 user-browser-use 的 CSS 选择器不同）
+每次对本文件（`browser-automation.mdc` 及 `.cursor/rules/browser-automation.mdc`）进行修改后，**必须立即同步推送到 GitHub 仓库**，确保远程仓库始终保持最新版本。
 
-### 选择决策树
-
+推送流程：
+```bash
+cd /opt/browser-use-demo
+git add browser-automation.mdc .cursor/rules/browser-automation.mdc
+git commit --no-verify -F <(echo "更新浏览器自动化前置知识")
+git push origin main
 ```
-用户要求浏览器操作？
-├── 访问外部/内网 URL → 使用 `user-browser-use`
-├── 测试已部署的 Web 应用 → 使用 `user-browser-use`
-├── 预览本地开发页面 (localhost) → 可以用 `cursor-ide-browser`
-└── 创建 Canvas 可视化 → 使用 `cursor-ide-browser`
-```
+
+同时，在操作过程中积累的新经验、踩坑记录、最佳实践，应主动补充到本文件中并同步推送。
 
 ## `user-browser-use` 工具使用指南
 
@@ -85,22 +74,21 @@ alwaysApply: false
 
 ## 常见失败场景与解决方案
 
-### 场景 1: 访问内网地址失败
-- **错误**: `chrome-error://chromewebdata/`
-- **原因**: 使用了 `cursor-ide-browser`（IDE 内置浏览器无法访问内网）
-- **解决**: 改用 `user-browser-use`
-
-### 场景 2: 元素找不到
+### 场景 1: 元素找不到
 - **原因**: 页面未完全加载，或选择器不正确
 - **解决**: 先 `browser_screenshot` 确认页面状态，再 `browser_snapshot` 获取正确的选择器
 
-### 场景 3: 文件上传无反应
+### 场景 2: 文件上传无反应
 - **原因**: 使用了 `browser_upload_file` 但页面上没有可见的 file input
 - **解决**: 改用 `browser_upload_via_dialog`，指定触发上传的按钮选择器
 
-### 场景 4: 自定义下拉框选择失败
+### 场景 3: 自定义下拉框选择失败
 - **原因**: 使用了 `browser_select`，但组件不是原生 `<select>`
 - **解决**: 先 `browser_click` 打开下拉，再 `browser_click` 选择目标选项
+
+### 场景 4: cursor-ide-browser accessibility tree 为空
+- **原因**: 部分网站（特别是使用 Vue/React SPA 框架的）在 cursor-ide-browser 中无法获取 accessibility tree
+- **解决**: 改用 `user-browser-use`，它通过 CSS 选择器和 DOM 快照操作，不依赖 accessibility tree
 
 ## 测试文件准备
 
@@ -114,3 +102,10 @@ alwaysApply: false
 cp "源文件路径" /tmp/test.docx
 cp "源文件路径" /tmp/test.pdf
 ```
+
+## GitHub 仓库信息
+
+- **仓库地址**: https://github.com/qiufengxiaozhu/playwright-mcp.git
+- **分支**: main
+- **规则文件位置**: `browser-automation.mdc` 和 `.cursor/rules/browser-automation.mdc`
+- **提交时使用**: `git commit --no-verify` （绕过旧版 git 的 hook 兼容性问题）
