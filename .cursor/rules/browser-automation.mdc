@@ -104,6 +104,45 @@ cp "源文件路径" /tmp/test.docx
 cp "源文件路径" /tmp/test.pdf
 ```
 
+## 当 `user-browser-use` MCP 不可用时的备选方案
+
+如果 `user-browser-use` 未注册到 Cursor MCP 系统中，可以直接用 Python + Playwright 脚本操作外部浏览器：
+
+```python
+from playwright.async_api import async_playwright
+
+pw = await async_playwright().start()
+browser = await pw.chromium.launch(headless=False, args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
+ctx = await browser.new_context(viewport={"width": 1920, "height": 1080}, locale="zh-CN")
+page = await ctx.new_page()
+```
+
+Python 环境路径：`/opt/browser-use-demo/.venv/bin/python`
+
+### 关键技巧
+
+1. **登录后保存 storage_state**：`await ctx.storage_state(path="/tmp/browser_state.json")`，后续可复用
+2. **卡片点击可能打开新标签页**：使用 `ctx.expect_page()` 或 `page.on("popup", ...)` 捕获
+3. **SPA 页面无隐藏 file input**：使用 `page.expect_file_chooser()` + 点击上传区域触发文件选择对话框
+4. **Fluent UI ChoiceField（单选按钮组）**：通过 `page.locator("label", has_text="选项文本").click()` 选择
+5. **JSON 配置 textarea**：先 `input_value()` 读取，`json.loads()` 解析修改后 `fill()` 回填
+
+## Filez 文档中台操作经验
+
+### 登录
+- URL: `http://172.16.52.152:8001/docs/app/home/open_api`
+- 登录方式: 点击"测试号登录"按钮，密码固定为 `passw0rd`
+- 登录后默认进入 Open API 能力列表页
+
+### 水印功能
+- 水印页面 URL: `http://172.16.52.152:8001/docs/app/home/demo_open_api_watermark`
+- 从 Open API 列表点击"添加水印"卡片会**打开新标签页**
+- 水印类型: 无水印 / 平铺水印 / 位置水印（Fluent UI ChoiceFieldGroup）
+- 水印配置通过 JSON textarea 编辑，字段名是 `"font"` 而非 `"fontfamily"`
+- 位置水印 JSON 示例：`{"text": "...", "fontcolor": "#FD4147", "fontsize": "30", "font": "黑体", "rotation": 0, "transparent": 70, "position": "CENTER"}`
+- 平铺水印 JSON 示例：`{"line1": "...", "line2": "", "line3": "", "line4": "", "withDate": true, "font": "黑体", "fontcolor": "#FD4147", "fontsize": "30", "transparent": 70, "rotation": 315, "spacing": 30}`
+- 应用成功后按钮从"应用"变为"下载"
+
 ## GitHub 仓库信息
 
 - **仓库地址**: https://github.com/qiufengxiaozhu/playwright-mcp.git
