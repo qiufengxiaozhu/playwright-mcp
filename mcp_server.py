@@ -85,6 +85,8 @@ async def ensure_browser():
                 "--disable-setuid-sandbox",
                 "--disable-gpu",           # WSLg 兼容性
                 "--disable-dev-shm-usage", # 避免共享内存不足
+                "--dns-prefetch-disable",  # 避免 DNS 预取导致代理环境下超时
+                "--disable-features=NetworkService,NetworkServiceInProcess",
             ],
         )
 

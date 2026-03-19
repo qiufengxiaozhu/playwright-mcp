@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "user-browser-use": {
+      "command": "/opt/playwright-mcp/.venv/bin/python",
+      "args": ["/opt/playwright-mcp/mcp_server.py"],
+      "env": {
+        "BROWSER_MODE": "visible",
+        "VIEWPORT_WIDTH": "1920",
+        "VIEWPORT_HEIGHT": "1080",
+        "BROWSER_LOCALE": "zh-CN",
+        "BROWSER_TIMEOUT": "30000"
+      }
+    }
+  }
+}
