@@ -8,18 +8,31 @@ alwaysApply: false
 
 ## 核心原则
 
-### 1. 默认使用外部浏览器 `user-browser-use`
+### 1. 操作方式优先级
 
-**所有浏览器自动化操作默认使用 `user-browser-use` MCP 服务器**（外部 Chromium 浏览器），除非有明确理由才使用 `cursor-ide-browser`（IDE 内置浏览器）。
+本项目有三种浏览器自动化方式，**按优先级从高到低**：
 
-- `cursor-ide-browser` 仅在以下场景使用：创建 Canvas 可视化、预览本地前端页面
-- 其他所有场景（访问 URL、测试 Web 应用、端到端操作）一律使用 `user-browser-use`
+| 优先级 | 方式 | 说明 | 适用场景 |
+|--------|------|------|----------|
+| **1（最高）** | `user-browser-use` MCP | 自定义 Playwright MCP 服务器，Cursor 直接驱动，逐步交互 | 所有需要浏览器操作的场景 |
+| **2** | Python + Playwright 逐步交互 | 当 MCP 不可用时，用 Python 脚本逐步调用 Playwright | MCP 未注册时的备选 |
+| **3（最低）** | `cursor-ide-browser` | IDE 内置浏览器 | 仅用于 Canvas 可视化、本地前端预览 |
 
-### 2. 前置知识实时同步 GitHub
+> **关键原则**：
+> - **默认使用外部浏览器**，非不得已不使用 `cursor-ide-browser`
+> - **逐步交互优于自动化脚本**：每一步都主动识别页面元素、截图确认，而非写死流程脚本。脚本不够灵活，页面一变就废
+> - 使用 Playwright 备选时，也应逐步执行命令，每步截图观察，而非一次性跑完整脚本
 
-每次对本文件（`browser-automation.mdc` 及 `.cursor/rules/browser-automation.mdc`）进行修改后，**必须立即同步推送到 GitHub 仓库**，确保远程仓库始终保持最新版本。
+### 2. 截图与结果记录
 
-推送流程：
+- **每完成一个任务**，必须将结果截图保存到桌面（`/mnt/c/Users/<用户名>/Desktop/`），图片命名为任务名
+- 过程中的关键步骤也可以截图记录（保存到 `/tmp/screenshots/` 即可）
+- 截图路径确认：先检查 `/mnt/c/Users/` 下的实际用户名
+
+### 3. 前置知识实时同步 GitHub
+
+每次修改本文件后，**必须立即同步推送到 GitHub**：
+
 ```bash
 cd /opt/browser-use-demo
 cp browser-automation.mdc .cursor/rules/browser-automation.mdc
@@ -28,11 +41,13 @@ echo "提交信息" > /tmp/commit_msg.txt && /usr/bin/git commit -n -F /tmp/comm
 git push origin main
 ```
 
-同时，在操作过程中积累的新经验、踩坑记录、最佳实践，应主动补充到本文件中并同步推送。
+操作中积累的新经验、踩坑记录，应主动补充到本文件并推送。
 
-## `user-browser-use` 工具使用指南
+## `user-browser-use` MCP 工具使用指南
 
-### 工具清单与用法
+MCP 服务器名称在 Cursor 中注册为 `user-browser-use` 或 `browser-use`（取决于 `.cursor/mcp.json` 配置）。
+
+### 工具清单
 
 | 工具 | 用途 | 关键参数 |
 |------|------|----------|
@@ -50,97 +65,98 @@ git push origin main
 | `browser_get_text` | 获取文本内容 | `selector`(可选) |
 | `browser_close` | 关闭浏览器 | 无参数 |
 
-### 标准操作流程
+### 标准操作流程（逐步交互）
 
 ```
 1. browser_open → 打开目标 URL
 2. browser_screenshot → 确认页面加载状态
-3. browser_snapshot → 获取可交互元素列表，找到目标元素的 CSS 选择器
-4. browser_click / browser_type / ... → 执行交互操作
+3. browser_snapshot → 获取可交互元素，找到 CSS 选择器
+4. 根据识别结果决定操作 → browser_click / browser_type / ...
 5. browser_screenshot → 确认操作结果
 6. 重复 3-5 直到完成
-7. browser_close → 关闭浏览器（可选）
+7. 任务完成时 → 截图保存到桌面
 ```
 
 ### 关键注意事项
 
-1. **先截图/快照再操作**: 每次交互前，先用 `browser_screenshot` 或 `browser_snapshot` 确认页面状态
-2. **CSS 选择器优先**: 用 `browser_snapshot` 获取元素的 CSS 选择器，比文本匹配更可靠
-3. **文件上传两种方式**:
-   - `browser_upload_file`: 页面上已有可见的 `<input type="file">` 时使用
-   - `browser_upload_via_dialog`: 上传按钮通过 JS 动态创建 file input 时使用（更通用）
-4. **文件路径**: 使用 WSL 路径格式（如 `/tmp/test.docx`），不要用 Windows 路径
-5. **等待策略**: 页面加载或操作后，使用 `browser_wait_for` 或 `browser_screenshot` + `wait_ms` 确认完成
-6. **下拉框**: 如果是原生 `<select>` 用 `browser_select`；如果是自定义下拉组件，需要先 `browser_click` 打开再 `browser_click` 选项
+1. **先截图/快照再操作**：每次交互前确认页面状态
+2. **CSS 选择器优先**：用 `browser_snapshot` 获取选择器，比文本匹配更可靠
+3. **文件上传**：优先用 `browser_upload_via_dialog`（更通用），`browser_upload_file` 仅在有可见 file input 时用
+4. **文件路径**：使用 WSL 路径格式（如 `/tmp/test.docx`）
+5. **下拉框**：原生 `<select>` 用 `browser_select`；自定义组件先 click 打开再 click 选项
 
-## 常见失败场景与解决方案
+## Playwright 备选方案（当 MCP 不可用时）
 
-### 场景 1: 元素找不到
-- **原因**: 页面未完全加载，或选择器不正确
-- **解决**: 先 `browser_screenshot` 确认页面状态，再 `browser_snapshot` 获取正确的选择器
+当 `user-browser-use` MCP 未注册到 Cursor 时，用 Python + Playwright **逐步交互**。
 
-### 场景 2: 文件上传无反应
-- **原因**: 使用了 `browser_upload_file` 但页面上没有可见的 file input
-- **解决**: 改用 `browser_upload_via_dialog`，指定触发上传的按钮选择器
+Python 环境：`/opt/browser-use-demo/.venv/bin/python`
 
-### 场景 3: 自定义下拉框选择失败
-- **原因**: 使用了 `browser_select`，但组件不是原生 `<select>`
-- **解决**: 先 `browser_click` 打开下拉，再 `browser_click` 选择目标选项
+### 逐步交互模式（推荐）
 
-### 场景 4: cursor-ide-browser accessibility tree 为空
-- **原因**: 部分网站（特别是使用 Vue/React SPA 框架的）在 cursor-ide-browser 中无法获取 accessibility tree
-- **解决**: 改用 `user-browser-use`，它通过 CSS 选择器和 DOM 快照操作，不依赖 accessibility tree
-
-## 测试文件准备
-
-项目中有可用的测试文档：
-- **docx 文件**: `/opt/luoshu-server/src/docscommon/templates/demosite/en/` 目录下有多个 .docx 文件
-- **pdf 文件**: 同目录下有 .pdf 文件
-- **建议**: 操作前先复制到 `/tmp/` 下并重命名为简单文件名，避免路径中的中文和特殊字符
+不要写一次性跑完的大脚本，而是每一步单独执行 Python 命令，观察结果后再决定下一步：
 
 ```bash
-# 示例：准备测试文件
-cp "源文件路径" /tmp/test.docx
-cp "源文件路径" /tmp/test.pdf
-```
-
-## 当 `user-browser-use` MCP 不可用时的备选方案
-
-如果 `user-browser-use` 未注册到 Cursor MCP 系统中，可以直接用 Python + Playwright 脚本操作外部浏览器：
-
-```python
+# 每一步都是独立的小脚本，执行后观察输出和截图
+.venv/bin/python -c "
+import asyncio
 from playwright.async_api import async_playwright
-
-pw = await async_playwright().start()
-browser = await pw.chromium.launch(headless=False, args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
-ctx = await browser.new_context(viewport={"width": 1920, "height": 1080}, locale="zh-CN")
-page = await ctx.new_page()
+async def step():
+    pw = await async_playwright().start()
+    browser = await pw.chromium.launch(headless=False, args=['--no-sandbox','--disable-setuid-sandbox','--disable-gpu','--disable-dev-shm-usage'])
+    ctx = await browser.new_context(viewport={'width':1920,'height':1080}, locale='zh-CN')
+    page = await ctx.new_page()
+    await page.goto('目标URL', wait_until='networkidle', timeout=30000)
+    await asyncio.sleep(3)
+    await page.screenshot(path='/tmp/screenshots/step_name.png')
+    # ... 观察截图后决定下一步 ...
+    await ctx.storage_state(path='/tmp/browser_state.json')
+    await browser.close()
+    await pw.stop()
+asyncio.run(step())
+"
 ```
-
-Python 环境路径：`/opt/browser-use-demo/.venv/bin/python`
 
 ### 关键技巧
 
-1. **登录后保存 storage_state**：`await ctx.storage_state(path="/tmp/browser_state.json")`，后续可复用
-2. **卡片点击可能打开新标签页**：使用 `ctx.expect_page()` 或 `page.on("popup", ...)` 捕获
-3. **SPA 页面无隐藏 file input**：使用 `page.expect_file_chooser()` + 点击上传区域触发文件选择对话框
-4. **Fluent UI ChoiceField（单选按钮组）**：通过 `page.locator("label", has_text="选项文本").click()` 选择
-5. **JSON 配置 textarea**：先 `input_value()` 读取，`json.loads()` 解析修改后 `fill()` 回填
+1. **登录后保存 storage_state**：`await ctx.storage_state(path="/tmp/browser_state.json")`，后续复用
+2. **卡片点击可能打开新标签页**：用 `ctx.expect_page()` 捕获
+3. **SPA 页面无隐藏 file input**：用 `page.expect_file_chooser()` + 点击上传区域
+4. **Fluent UI ChoiceField**：通过 `page.locator("label", has_text="选项文本").click()` 选择
+5. **JSON 配置 textarea**：先 `input_value()` 读取 → `json.loads()` 解析修改 → `fill()` 回填
+6. **获取页面元素**：用 `page.evaluate()` 执行 JS 扫描 DOM，比 accessibility tree 更可靠
+
+## 常见失败场景与解决方案
+
+| 场景 | 原因 | 解决 |
+|------|------|------|
+| 元素找不到 | 页面未加载完 / 选择器错误 | 先截图确认，再 snapshot 获取正确选择器 |
+| 文件上传无反应 | 页面无可见 file input | 改用 `browser_upload_via_dialog` |
+| 自定义下拉框选择失败 | 不是原生 `<select>` | 先 click 打开下拉，再 click 选项 |
+| cursor-ide-browser accessibility tree 为空 | SPA 框架限制 | 改用外部浏览器 |
+| 水印应用报错 | JSON 字段名错误 | 字段名是 `"font"` 不是 `"fontfamily"` |
+
+## 测试文件准备
+
+```bash
+# docx 文件
+cp "/opt/luoshu-server/src/docscommon/templates/demosite/en/预览_服务合同@@Preview Consulting Contract.docx" /tmp/test.docx
+# pdf 文件
+cp "/opt/luoshu-server/src/docscommon/templates/demosite/en/技术服务合同签约@@Business-Partnership-Agreement.pdf" /tmp/test.pdf
+```
 
 ## Filez 文档中台操作经验
 
 ### 登录
 - URL: `http://172.16.52.152:8001/docs/app/home/open_api`
-- 登录方式: 点击"测试号登录"按钮，密码固定为 `passw0rd`
-- 登录后默认进入 Open API 能力列表页
+- 点击"测试号登录"按钮，密码固定为 `passw0rd`
 
 ### 水印功能
 - 水印页面 URL: `http://172.16.52.152:8001/docs/app/home/demo_open_api_watermark`
 - 从 Open API 列表点击"添加水印"卡片会**打开新标签页**
 - 水印类型: 无水印 / 平铺水印 / 位置水印（Fluent UI ChoiceFieldGroup）
 - 水印配置通过 JSON textarea 编辑，字段名是 `"font"` 而非 `"fontfamily"`
-- 位置水印 JSON 示例：`{"text": "...", "fontcolor": "#FD4147", "fontsize": "30", "font": "黑体", "rotation": 0, "transparent": 70, "position": "CENTER"}`
-- 平铺水印 JSON 示例：`{"line1": "...", "line2": "", "line3": "", "line4": "", "withDate": true, "font": "黑体", "fontcolor": "#FD4147", "fontsize": "30", "transparent": 70, "rotation": 315, "spacing": 30}`
+- 位置水印 JSON: `{"text":"...","fontcolor":"#FD4147","fontsize":"30","font":"黑体","rotation":0,"transparent":70,"position":"CENTER"}`
+- 平铺水印 JSON: `{"line1":"...","line2":"","line3":"","line4":"","withDate":true,"font":"黑体","fontcolor":"#FD4147","fontsize":"30","transparent":70,"rotation":315,"spacing":30}`
 - 应用成功后按钮从"应用"变为"下载"
 
 ## GitHub 仓库信息
@@ -148,4 +164,24 @@ Python 环境路径：`/opt/browser-use-demo/.venv/bin/python`
 - **仓库地址**: https://github.com/qiufengxiaozhu/playwright-mcp.git
 - **分支**: main
 - **规则文件位置**: `browser-automation.mdc` 和 `.cursor/rules/browser-automation.mdc`
-- **提交时使用**: `/usr/bin/git commit -n -F /tmp/commit_msg.txt` （用 `-n` 绕过旧版 git 2.25 的 hook/trailer 兼容性问题，用 `-F` 从文件读取提交信息）
+- **提交命令**: `/usr/bin/git commit -n -F /tmp/commit_msg.txt`（`-n` 绕过旧版 git 2.25 hook 兼容性问题）
+
+## MCP 服务器配置参考
+
+如需在 Cursor 中注册 `user-browser-use` MCP，创建 `.cursor/mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "user-browser-use": {
+      "command": "/opt/browser-use-demo/.venv/bin/python",
+      "args": ["/opt/browser-use-demo/mcp_server.py"],
+      "env": {
+        "BROWSER_MODE": "visible"
+      }
+    }
+  }
+}
+```
+
+环境变量：`BROWSER_MODE`(visible/headless)、`VIEWPORT_WIDTH`(1920)、`VIEWPORT_HEIGHT`(1080)、`BROWSER_LOCALE`(zh-CN)、`BROWSER_TIMEOUT`(30000)
