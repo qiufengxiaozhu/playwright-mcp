@@ -27,7 +27,7 @@ alwaysApply: false
 
 ### 2. 截图与结果记录
 
-- **每完成一个任务**，必须将结果截图保存到桌面（`/mnt/c/Users/10153/Desktop/`），图片命名为任务名
+- **每完成一个任务**，必须将结果截图保存到桌面（`/mnt/c/Users/lenovocloud/Desktop/`），图片命名为任务名
 - 过程中的关键步骤也可以截图记录（保存到 `/tmp/screenshots/` 即可）
 - 截图路径确认：先检查 `/mnt/c/Users/` 下的实际用户名
 
@@ -269,3 +269,47 @@ echo "OPENAI_API_KEY=sk-xxx" >> /opt/playwright-mcp/.env
 | `ANTHROPIC_API_KEY` | Anthropic | claude-sonnet | ✅ 兼容 |
 | `BROWSER_USE_API_KEY` | Browser Use | 官方模型 | ✅ 专门优化 |
 | `MINIMAX_API_KEY` | MiniMax | MiniMax-M2.7 | ❌ 不兼容（无 Structured Output） |
+
+## 小红书（xiaohongshu.com）自动化经验
+
+### 登录状态持久化（已验证 2026-03-20）
+
+小红书对未登录用户严格限制内容访问（搜索结果为空、笔记详情被遮罩），**必须登录后操作**。
+
+#### 登录状态保存与复用
+
+1. **保存路径**：`/opt/browser-use-demo/xhs_storage_state.json`
+2. **保存方式**：用户手动在非 headless 浏览器中登录后，通过 `ctx.storage_state()` 保存
+3. **复用方式**：后续创建 browser context 时加载：
+   ```python
+   ctx = await browser.new_context(
+       storage_state='/opt/browser-use-demo/xhs_storage_state.json',
+       viewport={'width':1920,'height':1080},
+       locale='zh-CN'
+   )
+   ```
+4. **有效期**：`web_session` cookie 有效期有限，过期后需重新登录
+
+#### 登录流程
+
+1. 启动非 headless Chromium（`headless=False`），打开 `https://www.xiaohongshu.com/explore`
+2. **提醒用户手动登录**（扫码或手机验证码）
+3. 等待用户确认后，执行 `ctx.storage_state()` 保存
+4. 验证：用保存的 state 打开新 context，访问 explore 页面确认有内容
+
+> **重要提醒**：下次需要操作小红书时，先检查 `xhs_storage_state.json` 是否存在且未过期。如果过期或不存在，需要**提醒用户手动登录**。
+
+### 小红书页面特点
+
+- **登录弹窗**：CSS class 包含 `login-container`、`mask-paper`，可用 JS 移除：
+  ```javascript
+  document.querySelectorAll('[class*="login-container"],[class*="mask-paper"],[class*="reds-mask"]').forEach(el=>el.remove())
+  ```
+- **搜索页面**：`https://www.xiaohongshu.com/search_result?keyword=关键词&source=web_search_result_notes`
+- **发现页面**：`https://www.xiaohongshu.com/explore`（有频道分类：推荐、穿搭、美食、旅行等）
+- **SSR 数据**：部分页面在 `window.__INITIAL_STATE__` 中有服务端渲染数据，可通过 `page.evaluate()` 提取
+- **反爬策略**：频繁请求可能触发验证码，建议操作间隔 3-5 秒
+
+### 桌面路径
+
+Windows 桌面路径为 `/mnt/c/Users/lenovocloud/Desktop/`（注意实际用户名为 `lenovocloud`，非 `10153`）
